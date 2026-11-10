@@ -1,45 +1,40 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, {useEffect, useState} from 'react';
+import {Image, StyleSheet, Text, View} from 'react-native';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+const sources = [require('./assets/a.webp'), require('./assets/b.webp')];
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+const IMAGE_COUNT = 60;
 
-  return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
-  );
-}
+export default function App() {
+  const [tick, setTick] = useState(0);
 
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
+  useEffect(() => {
+    let id = requestAnimationFrame(function loop() {
+      setTick(t => t + 1);
+      id = requestAnimationFrame(loop);
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   return (
     <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
+      <Text style={styles.title}>webp remount · tick {tick}</Text>
+      <View style={styles.grid}>
+        {Array.from({length: IMAGE_COUNT}, (_, i) => (
+          <Image
+            key={`${tick}-${i}`}
+            source={sources[(tick + i) % 2]}
+            style={styles.image}
+          />
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: {flex: 1, paddingTop: 80, backgroundColor: 'white'},
+  title: {fontSize: 20, color: 'black', margin: 16},
+  grid: {flexDirection: 'row', flexWrap: 'wrap'},
+  image: {width: 24, height: 24, margin: 2},
 });
-
-export default App;

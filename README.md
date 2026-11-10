@@ -1,79 +1,25 @@
-# rn-image-networktask-race-repro
+# Reproducer: iOS `EXC_BAD_ACCESS` in `-[RCTNetworkTask URLRequest:didReceiveData:]`
 
-![Build](https://github.com/sagnik2001/rn-image-networktask-race-repro/workflows/Pre%20Merge%20Checks/badge.svg)
+`<Image>` sources that are bundled **non-png/jpg** assets (`.webp`, `.gif`, `.jpeg`) are not handled by `RCTLocalAssetImageLoader`, so they are loaded through `RCTNetworking` → `RCTFileRequestHandler`. When such an `<Image>` unmounts mid-load, `-[RCTNetworkTask cancel]` → `-invalidate` releases the task's callback blocks on one thread while the file request handler is reading them on another, which crashes with `EXC_BAD_ACCESS` (freed block retained or invoked).
 
-This is your new React Native Reproducer project.
+[`ReproducerApp/App.tsx`](ReproducerApp/App.tsx) remounts 60 `<Image>`s sourced from two bundled `.webp` files on every frame.
 
-# Reproducer TODO list
+## Run
 
-- [x] 1. Create a new reproducer project.
-- [ ] 2. Git clone your repository locally.
-- [ ] 3. Edit the project to reproduce the failure you're seeing.
-- [ ] 4. Push your changes, so that Github Actions can run the CI.
-- [ ] 5. Make sure the repository is public and share the link with the issue you reported.
-
-# How to use this Reproducer
-
-This project has been created with `npx @react-native-community/cli init` and is a vanilla React Native app.
-
-> [!IMPORTANT]  
-> Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/set-up-your-environment) so that you have a working environment locally.
-
-## Step 1: Start the Metro Server
-
-First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
-
-To start Metro, run the following command from the _root_ of your React Native project:
-
-```bash
-# using npm
-npm start
-
-# OR using Yarn
-yarn start
+```sh
+cd ReproducerApp
+yarn install
+cd ios && bundle install && bundle exec pod install && cd ..
 ```
 
-## Step 2: Start your Application
+Open `ios/ReproducerApp.xcworkspace`, then:
 
-Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
+1. Edit Scheme → Run → Build Configuration: **Release**. In Debug, assets come from Metro over HTTP and take a different code path.
+2. Optional: Edit Scheme → Run → Diagnostics → **Malloc Scribble**, which makes the crash faster.
+3. Run on a **physical device**.
 
-### For Android
+The app crashes with `EXC_BAD_ACCESS` within seconds to about 2 minutes.
 
-```bash
-# using npm
-npm run android
+## Control
 
-# OR using Yarn
-yarn android
-```
-
-### For iOS
-
-First, make sure you install dependencies with:
-
-```bash
-cd ios && bundle install && bundle exec pod install
-```
-
-Then you can run the iOS app with:
-
-```bash
-# using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
-
-This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
-
-## Step 3: Modifying your App
-
-Now that you have successfully run the app, let's modify it.
-
-1. Open `App.tsx` in your text editor of choice and edit some lines.
-2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
-
-   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+Convert `assets/a.webp` / `assets/b.webp` to `.png` and update the two `require`s. PNG bundle assets go through `RCTLocalAssetImageLoader`, never create an `RCTNetworkTask`, and the app runs indefinitely.
